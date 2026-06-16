@@ -6,13 +6,14 @@ import math
 import asyncio
 import aiohttp
 import voluptuous as vol
-from datetime import datetime, timedelta
+from datetime import datetime
 from fractions import Fraction
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import llm
+from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 from homeassistant.util.json import JsonObjectType
 
 from .const import DOMAIN, CONF_MINISEARCH_URL, DEFAULT_MINISEARCH_URL, API_NAME
@@ -66,7 +67,7 @@ class MiniSearchAPI(llm.API):
                 "automatically to offline knowledge, weather forecast, news, or web search. "
                 "Use `calculator` for math. Use `unit_converter` for unit conversions. "
                 "Use `calendar_day` to find what day of the week a date falls on. "
-                "Use `set_timer` to set a timer that will announce via TTS when done."
+                "Use `minisearch_timer` to set a timer that will announce via TTS when done."
             ),
             llm_context=llm_context,
             tools=[
@@ -105,6 +106,7 @@ class MiniSearchTool(llm.Tool):
     async def async_call(self, hass, tool_input, llm_context) -> JsonObjectType:
         query = tool_input.tool_args["query"]
         source = tool_input.tool_args.get("source", "auto")
+        _LOGGER.debug("MiniSearch tool called: query='%s' source='%s'", query, source)
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -143,8 +145,8 @@ class CalculatorTool(llm.Tool):
 
     async def async_call(self, hass, tool_input, llm_context) -> JsonObjectType:
         expr = tool_input.tool_args["expression"].strip()
+        _LOGGER.debug("Calculator tool called: expression='%s'", expr)
         try:
-            # Safe math context
             safe_globals = {
                 "__builtins__": {},
                 "abs": abs, "round": round, "min": min, "max": max,
@@ -154,7 +156,6 @@ class CalculatorTool(llm.Tool):
                 "log": math.log, "log10": math.log10, "pi": math.pi, "e": math.e,
             }
 
-            # Handle average(a, b, c, ...)
             if expr.lower().startswith("average("):
                 inner = expr[8:].rstrip(")")
                 nums = [float(x.strip()) for x in inner.split(",")]
@@ -227,7 +228,6 @@ class UnitConverterTool(llm.Tool):
     def _parse_amount(self, amount_str: str) -> float:
         amount_str = amount_str.strip()
         try:
-            # Handle mixed fractions like "1 1/2"
             parts = amount_str.split()
             if len(parts) == 2:
                 return float(parts[0]) + float(Fraction(parts[1]))
@@ -236,10 +236,6 @@ class UnitConverterTool(llm.Tool):
             raise HomeAssistantError(f"Cannot parse amount '{amount_str}'")
 
     def _parse_compound(self, amount_str: str, from_unit: str) -> tuple[float, str] | None:
-        """
-        Parse compound amounts like '5 ft 10 in' or '2 lb 4 oz'.
-        Returns (total_in_primary_unit, primary_unit) or None if not compound.
-        """
         compound_map = {
             ("ft", "in"): ("ft", "inch", 12),
             ("ft", "inch"): ("ft", "inch", 12),
@@ -271,15 +267,14 @@ class UnitConverterTool(llm.Tool):
         amount_str = tool_input.tool_args["amount"]
         from_unit = tool_input.tool_args["from_unit"].lower().strip()
         to_unit = tool_input.tool_args["to_unit"].lower().strip()
+        _LOGGER.debug("Unit converter called: amount='%s' from='%s' to='%s'", amount_str, from_unit, to_unit)
 
-        # Check for compound input like "5 ft 10 in"
         compound = self._parse_compound(amount_str, from_unit)
         if compound:
             amount, from_unit = compound
         else:
             amount = self._parse_amount(amount_str)
 
-        # Temperature special cases
         if from_unit == "celsius_to_fahrenheit" or (from_unit == "c" and to_unit == "f"):
             result = (amount * 9/5) + 32
             return {"amount": amount, "from": "°C", "to": "°F", "result": round(result, 2)}
@@ -324,6 +319,7 @@ class CalendarDayTool(llm.Tool):
         month = tool_input.tool_args["month"]
         day = tool_input.tool_args["day"]
         year = tool_input.tool_args.get("year") or datetime.now().year
+        _LOGGER.debug("Calendar tool called: month=%d day=%d year=%d", month, day, year)
 
         try:
             target = datetime(year, month, day)
@@ -357,7 +353,7 @@ class CalendarDayTool(llm.Tool):
 # ---------------------------------------------------------------------------
 
 class TimerTool(llm.Tool):
-    name = "set_timer"
+    name = "minisearch_timer"
     description = (
         "Set a timer that will announce via text-to-speech on the satellite or device "
         "that the user is speaking from when the timer expires. "
@@ -373,8 +369,8 @@ class TimerTool(llm.Tool):
         duration = tool_input.tool_args["duration_seconds"]
         label = tool_input.tool_args.get("label", "Timer")
         device_id = llm_context.device_id
+        _LOGGER.debug("Timer tool called: duration=%d label='%s' device_id='%s'", duration, label, device_id)
 
-        # Format duration for speech
         if duration >= 3600:
             h = duration // 3600
             m = (duration % 3600) // 60
@@ -396,8 +392,7 @@ class TimerTool(llm.Tool):
             await asyncio.sleep(duration)
             try:
                 if device_id:
-                    # Get media player entities associated with the device
-                    entity_registry = hass.helpers.entity_registry.async_get(hass)
+                    entity_registry = async_get_entity_registry(hass)
                     entities = [
                         e.entity_id
                         for e in entity_registry.entities.values()
@@ -405,6 +400,7 @@ class TimerTool(llm.Tool):
                         and e.entity_id.startswith("media_player.")
                     ]
                     if entities:
+                        _LOGGER.info("Timer firing TTS on %s", entities[0])
                         await hass.services.async_call(
                             "tts", "speak",
                             {
@@ -415,8 +411,10 @@ class TimerTool(llm.Tool):
                             blocking=False,
                         )
                         return
+                    else:
+                        _LOGGER.warning("Timer: no media_player found for device_id=%s", device_id)
 
-                # Fallback — notify persistent notification
+                _LOGGER.info("Timer falling back to persistent notification")
                 await hass.services.async_call(
                     "persistent_notification", "create",
                     {
