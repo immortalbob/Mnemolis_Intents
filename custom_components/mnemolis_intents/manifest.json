@@ -1,0 +1,12 @@
+{
+  "domain": "mnemolis_intents",
+  "name": "Mnemolis Intents",
+  "version": "1.3.0",
+  "documentation": "https://github.com/immortalbob/Mnemolis-Intents",
+  "issue_tracker": "https://github.com/immortalbob/Mnemolis-Intents/issues",
+  "dependencies": [],
+  "codeowners": ["@immortalbob"],
+  "requirements": [],
+  "iot_class": "calculated",
+  "config_flow": true
+}

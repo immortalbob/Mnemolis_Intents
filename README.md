@@ -1,52 +1,19 @@
-# MiniSearch Intents
+# Mnemolis Intents
 
-A Home Assistant custom integration that exposes [MiniSearch](https://github.com/immortalbob/MiniSearch) and a set of local utility tools as a native LLM Tool API.
+A Home Assistant custom integration that exposes [MiniSearch](https://github.com/immortalbob/minisearch) as an LLM tool API, making it available to any LLM-backed conversation agent (Ollama, OpenAI, etc.) directly from the HA UI.
 
-Once enabled, any Home Assistant conversation agent (Ollama, OpenAI, Anthropic, etc.) can search your local knowledge stack, perform calculations, convert units, and query dates through a single tool interface.
+Once installed, Mnemolis appears as a selectable API in your conversation agent options alongside the built-in Assist API. Your LLM can then search across your entire local knowledge stack with a single tool call.
 
-MiniSearch Intents appears alongside the built-in Assist API and can be enabled per conversation agent from the Home Assistant UI.
-
-## What MiniSearch provides
+## What Mnemolis provides
 
 - **Offline knowledge** — Wikipedia, Stack Exchange, iFixit, FreeCodeCamp, DevDocs via Kiwix
 - **Weather forecast** — 3-day forecast via Open-Meteo (no API key required)
 - **News** — Recent articles from your FreshRSS RSS feeds
 - **Web search** — Live search via your local SearXNG instance
-- **Service status** — Monitor status for all services via Uptime Kuma
-
-## Architecture
-
-```
-ESP32 Voice Assistant
-          │
-          ▼
-   Home Assistant
-          │
-          ▼
- MiniSearch Intents
-          │
-          ▼
-     MiniSearch
-          │
-          ├─ Kiwix
-          ├─ FreshRSS
-          ├─ Open-Meteo
-          ├─ SearXNG
-          └─ Uptime Kuma
-```
-
-## Available Tools
-
-| Tool | Description | Status |
-|------|-------------|--------|
-| `minisearch` | Routes queries to Kiwix, Open-Meteo, FreshRSS, SearXNG, or Uptime Kuma | ✅ Working |
-| `calculator` | Evaluates math expressions, sqrt, trig, average | ✅ Working |
-| `unit_converter` | Converts between kitchen, weight, length, data, speed, and temperature units | ✅ Working |
-| `calendar_day` | Returns day of week and relative info for a given date | ✅ Working |
 
 ## Requirements
 
-- [MiniSearch](https://github.com/immortalbob/MiniSearch) v2.3.0 or later running and reachable from Home Assistant
+- [MiniSearch](https://github.com/immortalbob/minisearch) running and reachable from Home Assistant
 - Home Assistant 2024.6.0 or later
 - An LLM conversation agent (Ollama, OpenAI, etc.) configured in Home Assistant
 
@@ -55,19 +22,19 @@ ESP32 Voice Assistant
 ### Via HACS (recommended)
 
 1. Add this repository as a custom repository in HACS (type: Integration)
-2. Install **MiniSearch Intents**
+2. Install **Mnemolis Intents**
 3. Restart Home Assistant
 
 ### Manual
 
-1. Copy `custom_components/minisearch_intents` to your HA `custom_components` directory
+1. Copy `custom_components/mnemolis_intents` to your HA `custom_components` directory
 2. Restart Home Assistant
 
 ## Setup
 
 1. Go to **Settings → Devices & Services → Add Integration**
-2. Search for **MiniSearch Intents**
-3. Enter your MiniSearch URL (e.g. `http://192.168.3.5:8888`)
+2. Search for **Mnemolis Intents**
+3. Enter your Mnemolis URL (e.g. `http://192.168.3.5:8888`)
 4. Click Submit — HA will verify the connection before saving
 
 ## Enabling for your conversation agent
@@ -75,48 +42,14 @@ ESP32 Voice Assistant
 1. Go to **Settings → Devices & Services**
 2. Find your conversation agent (e.g. Ollama)
 3. Click **Configure**
-4. Under **Control Home Assistant**, enable **MiniSearch**
+4. Under **Control Home Assistant**, enable **Mnemolis**
 5. Save
 
-## Calculator
-
-Supports standard arithmetic, exponents, square roots, trig functions, and averages.
-
-Examples:
-- `what is the square root of 1764`
-- `what is average of 10, 20, 30`
-- `what is sin of 45`
-
-## Unit Converter
-
-Supported unit pairs:
-
-- **Kitchen volume:** cup, tablespoon, teaspoon, ml, pint, liter
-- **Weight:** kg, lb, oz, g
-- **Length:** km, mile, m, ft, inch, cm
-- **Data:** kb, mb, gb, tb
-- **Speed:** mph, kph, mps (meters per second)
-- **Temperature:** use `from_unit='c'` `to_unit='f'` or `from_unit='f'` `to_unit='c'`
-
-Amounts can be fractions: `1/2`, `1 1/2`, `0.75`
-
-## Calendar Day
-
-Ask what day of the week a date falls on, or how many days until an event.
-
-Examples:
-- `what day is July 4th`
-- `how many days until Christmas`
-- `what day was January 1st 2000`
-
-## Compatibility
-
-| MiniSearch Intents | MiniSearch |
-|-------------------|------------|
-| v1.2.0 | v2.3.0 or later |
-| v1.1.0 | v2.0.0 or later |
+Your LLM will now have access to the `mnemolis` tool and will use it automatically when answering questions that require looking things up.
 
 ## Part of the MiniNet stack
 
-- [MiniSearch](https://github.com/immortalbob/MiniSearch) — the search backend
-- [MiniSense-T7S3](https://github.com/immortalbob/MiniSense-T7S3) — ESP32-S3 room sensor node with voice assistant and CO2 monitoring
+This integration is part of the MiniNet homelab ecosystem:
+
+- [MiniSearch](https://github.com/immortalbob/minisearch) — the search backend
+- [openwebui-tools](https://github.com/immortalbob/openwebui-tools) — Open WebUI tool versions of the same sources
